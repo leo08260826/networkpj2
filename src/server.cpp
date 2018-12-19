@@ -2,11 +2,14 @@
 #include <cstring>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <assert.h>
 
 #define MAX_CLIENT 100
 #define MAX_CLIENT_ONLINE 10
 #define MAX_FD 1024
 using namespace std;
+
+
 int main(int argc,char* argv[]){
 	//argv[1]=port
 	if(argc!=2)
@@ -16,11 +19,7 @@ int main(int argc,char* argv[]){
 	}
 
 	int sockfd = socket(AF_INET,SOCK_STREAM,0);
-	if(sockfd==-1)
-	{
-		printf("Fails to create a socket!\n");
-		return 0;
-	}
+	assert(sockfd!=-1);
 
 	struct sockaddr_in server_addr;
 	memset(&server_addr,0,sizeof(server_addr));
@@ -29,11 +28,7 @@ int main(int argc,char* argv[]){
 	server_addr.sin_port = htons(atoi(argv[1]));
 
 	int ret = bind(sockfd,(struct sockaddr*) &server_addr, sizeof(server_addr));
-	if(ret)
-	{
-		printf("Fails to bind!\n");
-		return 0;
-	}
+	assert(ret!=-1);
 
 	listen(sockfd,MAX_CLIENT_ONLINE);
 	
@@ -49,21 +44,14 @@ int main(int argc,char* argv[]){
 		memcpy(&working_readset,&readset,sizeof(fd_set));
 		int select_num = select(MAX_FD, &working_readset,NULL,NULL,NULL);
 
-		if(select_num<0)
-		{
-			printf("Fails to select!\n");
-			return 0;
-		}
-		else if(select_num==0)
-		{
+		assert(select_num >= 0);
+		if(select_num == 0)
 			continue;
-		}
+
 		for(int fd=0;fd<MAX_FD;fd++)
 		{
 			if(!FD_ISSET(fd,&working_readset))
-			{
 				continue;
-			}
 			else if(fd == sockfd)
 			{
 				//new connect
