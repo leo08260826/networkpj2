@@ -13,55 +13,7 @@
 #include <fstream>
 #include <string>
 #include <string.h>
-
-void Welcome_Interface(){
-	printf("#############################################\n"
-	       "#				  	    #\n"			 	
-	       "#				   	    #\n"
-	       "#    	    Welcome to LMLine!!!    	    #\n"
-	       "#					    #\n"
-	       "#############################################\n"
-	       "If You're new to here, Please go Register first~\n"
-	       "If You already have an account, Please Login to use our Line~\n\n\n"
-	       "Help:\n"
-	       "/r     ->  to Register \n"
-	       "/login ->  to Login \n\n\n"
-	       );
-
-
-}
-void Online_Interface(){
-	printf("#############################################\n"
-	       "#				  	    #\n"			 	
-	       "#				   	    #\n"
-	       "#    	    Welcome Back User!!!    	    #\n"
-	       "#					    #\n"
-	       "#############################################\n"
-	       
-	       "Help:\n"
-	       "/c username -> to Connect to user with username\n"	       
-	       "/logout     -> to Logout our line\n"
-	       "/f          -> to Add friend\n"
-	       "/lf         -> to List friend\n"
-	       "/h	    -> to show the Help Interface\n\n\n"
-	       );
-}
-void Chat_Interface(){
-	printf("#############################################\n"
-	       "#				  	    #\n"			 	
-	       "#				   	    #\n"
-	       "#    	    Start To Chat 	    	    #\n"
-	       "#					    #\n"
-	       "#############################################\n"
-	       
-	       "Help:\n"
-	       "/log        -> to show all your chats LOG\n"	       
-	       "/s message  -> to Send the message\n"
-	       "/file file  -> to send your FILE\n"
-	       "/q          -> to Quit the chatroom\n"
-	       "/h          -> to show the HELP Interface\n\n\n"
-	       );
-}
+#include "Interface.h"
 
 int UserStatus = LMLINE_GUESS;
 
@@ -144,6 +96,22 @@ void welcome_process(int sockfd){
 	}
 }
 
+void logout(){
+	printf("haven't done yet XD.\n");
+	//TODO
+}
+
+void user_process(int sockfd){
+	string cmd;
+	cin>>cmd
+
+	if(cmd == "/logout"){
+		logout();	
+	}
+	//TODO:
+
+}
+
 void handle_user_request(int sockfd){
 
 	switch(UserStatus){
@@ -151,7 +119,7 @@ void handle_user_request(int sockfd){
 			welcome_process(sockfd);
 			break;
 		case LMLINE_ONLINE:
-			//user_process();
+			user_process();
 			break;
 		case LMLINE_CHAT:
 			//chat_process();
@@ -235,8 +203,5 @@ int main(int argc,char* argv[]){
 
 	}
 	
-	//TODO
-
-
 	return 0;
 }

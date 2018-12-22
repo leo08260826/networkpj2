@@ -28,6 +28,7 @@ typedef enum{
 typedef enum{
 	LMLINE_GUESS=0x01,
 	LMLINE_ONLINE,
+
 	LMLINE_CHAT,
 	LMLINE_SERVER,
 }LMLine_protocol_UserStatus;

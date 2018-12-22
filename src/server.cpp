@@ -161,13 +161,13 @@ void handle_client_request(int client_fd){
 
 	switch(header.op){
 		case LMLINE_OP_REGISTER:
-		UserRegister(client_fd);
-		break;
+			UserRegister(client_fd);
+			break;
 		case LMLINE_OP_LOGIN:
-		UserLogin(client_fd);
-		break;
+			UserLogin(client_fd);
+			break;
 		default:
-		break;
+			break;
 
 	}
 
