@@ -11,18 +11,20 @@
 #define MAX_FD 1024
 #define CMD_LEN 10
 #define MSG_MAXLEN 1024
+#define FILENAME_MAXLEN 20
+#define FILE_MAXLEN 1000000
 
 char ACCOUNT_FILE_PATH[30] = "./Account/account.txt";
 char USR_DIR_PATH[20] = "./USER/" ;
 
 typedef enum{
 	LMLINE_OP_REGISTER=0x01,
-	LMLINE_OP_LOGIN,
 	LMLINE_OP_LOGOUT,
 	LMLINE_OP_CONNECT,
 	LMLINE_OP_CHAT,
 	LMLINE_OP_FILE_SEND,
 	LMLINE_OP_QUERY,
+	LMLINE_OP_LOGIN
 }LMLine_protocol_op;
 
 
@@ -57,10 +59,18 @@ typedef struct {
 	// this field to specific whether connection is SUCCESS or FAIL
 	uint8_t magic;
 	// this two field is MAINly for server to store the history message more convenient !
-	char srcusername[USERNAME_MAXLEN], dstusername[USERNAME_MAXLEN];
+	char srcusername[USERNAME_MAXLEN],dstusername[USERNAME_MAXLEN];
 	// Only message Content 
 	char message[MSG_MAXLEN];
-}LMLINE_protocol_communicate;
+}LMLine_protocol_communicate;
+
+typedef struct {
+	uint8_t magic;
+	
+	char srcusername[USERNAME_MAXLEN],dstusername[USERNAME_MAXLEN];
+	char filename[FILENAME_MAXLEN];
+	int file_len;
+}LMLine_protocol_file;
 
 
 

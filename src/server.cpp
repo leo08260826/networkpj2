@@ -103,10 +103,13 @@ void UserRegister(int client_fd){
 	header.status = LMLINE_SERVER;
 	send(client_fd, &header, sizeof(header), 0);
 
+	/*
 	LMLine_protocol_account account;
 	memset(&account, 0, sizeof(LMLine_protocol_account));
+	*/
 	account.magic = magic;
 	send(client_fd, &account, sizeof(account), 0);
+	
 	// return;
 }
 
@@ -142,8 +145,10 @@ void UserLogin(int client_fd){
 	header.status = LMLINE_SERVER;
 	send(client_fd, &header, sizeof(header), 0);
 
+	/*
 	LMLine_protocol_account account;
 	memset(&account, 0, sizeof(LMLine_protocol_account));
+	*/
 	account.magic = magic;
 	send(client_fd, &account, sizeof(account), 0);
 
@@ -163,30 +168,86 @@ void UserLogout(int client_fd){
 
 void UserConnect(int client_fd){
 
-	LMLINE_protocol_communicate req_communicate;
+	LMLine_protocol_communicate req_communicate;
 	memset(&req_communicate, 0, sizeof(req_communicate));
 	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
 
 	uint8_t magic; 
 
 	string connectusername = req_communicate.dstusername;
-	if (CheckConnectValid(connectusername) != 0){		// Connect is valid, construct connect
+	/*if (CheckConnectValid(connectusername) != 0){		// Connect is valid, construct connect
 		ConstructConnect(client_fd, connectusername);
 		magic = LMLINE_SUCCESS;
 	}
 	else{
 		magic = LMLINE_FAIL;
-	}
+	}*/
 	LMLine_protocol_header header;
 	memset(&header, 0, sizeof(LMLine_protocol_header));
 	header.op = LMLINE_OP_CONNECT;
 	header.status = LMLINE_SERVER;
 	send(client_fd, &header, sizeof(header), 0);
 
-	LMLINE_protocol_communicate res_communicate;
-	memset(&res_communicate, 0, sizeof(LMLINE_protocol_communicate));
+	LMLine_protocol_communicate res_communicate;
+	memset(&res_communicate, 0, sizeof(LMLine_protocol_communicate));
+	/*
 	account.magic = magic;
-	send(client_fd, &account, sizeof(account), 0);
+	send(client_fd, &account, sizeof(account), 0);*/
+
+}
+
+void UserChat(int client_fd){
+	LMLine_protocol_communicate req_communicate;
+	memset(&req_communicate, 0, sizeof(req_communicate));
+	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
+
+	uint8_t magic;
+
+	char msg[MSG_MAXLEN];
+	strcpy(msg,req_communicate.message);
+	printf("msg:%s\n",msg);
+
+	//TODO
+	//deliver to another
+	LMLine_protocol_header header;
+	memset(&header, 0 ,sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_CHAT;
+	header.status = LMLINE_SERVER;
+	send(client_fd, &header, sizeof(header),0);
+	
+	LMLine_protocol_communicate res_communicate;
+	memset(&res_communicate, 0, sizeof(LMLine_protocol_communicate));
+	res_communicate.magic = LMLINE_SUCCESS;//need modify
+	send(client_fd, &res_communicate,sizeof(res_communicate),0);
+
+}
+
+void UserFile(int client_fd){
+	LMLine_protocol_file req_file;
+	memset(&req_file,0,sizeof(req_file));
+	recv(client_fd, &req_file,sizeof(req_file),0);
+
+	uint8_t magic;
+
+	char filename[FILENAME_MAXLEN];
+	char file[FILE_MAXLEN];
+	int file_len;
+	strcpy(filename,req_file.filename);
+	file_len=req_file.file_len;
+	recv(client_fd,file,file_len,0);
+	//TODO
+	//deliver to another
+	
+	LMLine_protocol_header header;
+	memset(&header,0,sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_FILE_SEND;
+	header.status = LMLINE_SERVER;
+	send(client_fd,&header,sizeof(header),0);
+
+	LMLine_protocol_file res_file;
+	memset(&res_file,0,sizeof(LMLine_protocol_file));
+	res_file.magic = LMLINE_SUCCESS;//need modify
+	send(client_fd,&res_file,sizeof(res_file),0);
 
 }
 
@@ -212,6 +273,12 @@ void handle_client_request(int client_fd, fd_set* readset){
 			break;
 		case LMLINE_OP_CONNECT:
 			UserConnect(client_fd);
+			break;
+		case LMLINE_OP_CHAT:
+			UserChat(client_fd);
+			break;
+		case LMLINE_OP_FILE_SEND:
+			UserFile(client_fd);
 			break;
 		default:
 			break;
