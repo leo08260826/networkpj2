@@ -13,9 +13,19 @@
 #include <fstream>
 #include <string>
 #include <string.h>
+#include <map>
+#include <sys/stat.h> 
 
 using namespace std;
 
+
+// to look up from username -> file descriptor
+map<string, int> UsernameTLB;
+
+// to look up from file descriptor -> username
+map<int, string> ReverseUsernameTLB;
+
+int ConnectionList[MAX_CLIENT] = {0}; 
 
 int ReturnUsernameFromFile(uint8_t op, string username, string password){
 	
@@ -71,38 +81,33 @@ void UserRegister(int client_fd){
 	string reg_username = account.username;
 	string reg_password = account.password;
 
+
+	uint8_t magic;
 	if (ReturnUsernameFromFile(LMLINE_OP_REGISTER,reg_username, reg_password)){		// same username exists, register FAIL
-		
-		LMLine_protocol_header header;
-		memset(&header, 0, sizeof(LMLine_protocol_header));
-		header.op = LMLINE_OP_REGISTER;
-		header.status = LMLINE_SERVER;
-		send(client_fd, &header, sizeof(header), 0);
-
-		LMLine_protocol_account account;
-		memset(&account, 0, sizeof(LMLine_protocol_account));
-		account.magic = LMLINE_FAIL;
-		send(client_fd, &account, sizeof(account), 0);
-
+		magic = LMLINE_FAIL;
 		printf("A client register fail\n");
 	}
-	else{ 		// same username exists, register FAIL
-
-		LMLine_protocol_header header;
-		memset(&header, 0, sizeof(LMLine_protocol_header));
-		header.op = LMLINE_OP_REGISTER;
-		header.status = LMLINE_SERVER;
-		send(client_fd, &header, sizeof(header), 0);
-
-		LMLine_protocol_account account;
-		memset(&account, 0, sizeof(LMLine_protocol_account));
-		account.magic = LMLINE_SUCCESS;
-		send(client_fd, &account, sizeof(account), 0);
-
+	else{ 		// register success
+		magic = LMLINE_SUCCESS;
+		//	Need to Create a unique dir for New Register
+		char* DIR_PATH = (char*)malloc(30);
+		strcpy(DIR_PATH, USR_DIR_PATH);
+		strcat(DIR_PATH, reg_username.c_str());
+		mkdir(DIR_PATH, 0666);
 		printf("A client register success\n");
 	}
 
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_REGISTER;
+	header.status = LMLINE_SERVER;
+	send(client_fd, &header, sizeof(header), 0);
 
+	LMLine_protocol_account account;
+	memset(&account, 0, sizeof(LMLine_protocol_account));
+	account.magic = magic;
+	send(client_fd, &account, sizeof(account), 0);
+	// return;
 }
 
 void UserLogin(int client_fd){
@@ -115,49 +120,85 @@ void UserLogin(int client_fd){
 	string log_username = account.username;
 	string log_password = account.password;
 
+	uint8_t magic;
 	if (ReturnUsernameFromFile(LMLINE_OP_LOGIN, log_username, log_password) == 1){	// Login SUCCESS 
-
-		LMLine_protocol_header header;
-		memset(&header, 0, sizeof(LMLine_protocol_header));
-		header.op = LMLINE_OP_LOGIN;
-		header.status = LMLINE_SERVER;
-		send(client_fd, &header, sizeof(header), 0);
-
-		LMLine_protocol_account account;
-		memset(&account, 0, sizeof(LMLine_protocol_account));
-		account.magic = LMLINE_SUCCESS;
-		send(client_fd, &account, sizeof(account), 0);
+		
+		magic = LMLINE_SUCCESS;
+		// assign connection
+		UsernameTLB[log_username] = client_fd;
+		ReverseUsernameTLB[client_fd] = log_username;
 
 		printf("A client login success\n");
 		
 	}
 	else{		// Login FAIL due to username not exist or wrong password
 
-		LMLine_protocol_header header;
-		memset(&header, 0, sizeof(LMLine_protocol_header));
-		header.op = LMLINE_OP_LOGIN;
-		header.status = LMLINE_SERVER;
-		send(client_fd, &header, sizeof(header), 0);
-
-		LMLine_protocol_account account;
-		memset(&account, 0, sizeof(LMLine_protocol_account));
-		account.magic = LMLINE_FAIL;
-		send(client_fd, &account, sizeof(account), 0);
-
+		magic = LMLINE_FAIL;
 		printf("A client login fail\n");
-
 	}
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_LOGIN;
+	header.status = LMLINE_SERVER;
+	send(client_fd, &header, sizeof(header), 0);
 
+	LMLine_protocol_account account;
+	memset(&account, 0, sizeof(LMLine_protocol_account));
+	account.magic = magic;
+	send(client_fd, &account, sizeof(account), 0);
 
 }
 
+void UserLogout(int client_fd){
 
-void handle_client_request(int client_fd){
+	string username = ReverseUsernameTLB[client_fd];
+	ReverseUsernameTLB.erase(client_fd);
+	UsernameTLB.erase(username);
+
+	printf("A client logout or close connect\n");
+
+	
+	// return;
+}
+
+void UserConnect(int client_fd){
+
+	LMLINE_protocol_communicate req_communicate;
+	memset(&req_communicate, 0, sizeof(req_communicate));
+	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
+
+	uint8_t magic; 
+
+	string connectusername = req_communicate.dstusername;
+	if (CheckConnectValid(connectusername) != 0){		// Connect is valid, construct connect
+		ConstructConnect(client_fd, connectusername);
+		magic = LMLINE_SUCCESS;
+	}
+	else{
+		magic = LMLINE_FAIL;
+	}
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_CONNECT;
+	header.status = LMLINE_SERVER;
+	send(client_fd, &header, sizeof(header), 0);
+
+	LMLINE_protocol_communicate res_communicate;
+	memset(&res_communicate, 0, sizeof(LMLINE_protocol_communicate));
+	account.magic = magic;
+	send(client_fd, &account, sizeof(account), 0);
+
+}
+
+void handle_client_request(int client_fd, fd_set* readset){
 
 	// first accept header 
 	LMLine_protocol_header header;
 	memset(&header, 0, sizeof(LMLine_protocol_header));
-	recv(client_fd, &header, sizeof(header), 0);
+	if (recv(client_fd, &header, sizeof(header), 0) == 0){
+		UserLogout(client_fd);
+		FD_CLR(client_fd, readset);
+	}
 
 	switch(header.op){
 		case LMLINE_OP_REGISTER:
@@ -165,6 +206,12 @@ void handle_client_request(int client_fd){
 			break;
 		case LMLINE_OP_LOGIN:
 			UserLogin(client_fd);
+			break;
+		case LMLINE_OP_LOGOUT:
+			UserLogout(client_fd);
+			break;
+		case LMLINE_OP_CONNECT:
+			UserConnect(client_fd);
 			break;
 		default:
 			break;
@@ -220,7 +267,7 @@ int main(int argc,char* argv[]){
 			int client_fd;
 			if(!FD_ISSET(fd,&working_readset))
 				continue;
-			else if(fd == sockfd)
+			if(fd == sockfd)
 			{
 				//new connect
 				printf("New connect!\n");
@@ -230,8 +277,10 @@ int main(int argc,char* argv[]){
 				assert(client_fd >= 0);
 				FD_SET(client_fd, &readset);
 			}
-			else
-				handle_client_request(client_fd);
+			else{
+				client_fd = fd;
+				handle_client_request(client_fd, &readset);
+			}
 		}
 	
 	}

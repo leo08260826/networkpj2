@@ -10,9 +10,10 @@
 #define MAX_CLIENT_ONLINE 10
 #define MAX_FD 1024
 #define CMD_LEN 10
+#define MSG_MAXLEN 1024
 
 char ACCOUNT_FILE_PATH[30] = "./Account/account.txt";
-
+char USR_DIR_PATH[20] = "./USER/" ;
 
 typedef enum{
 	LMLINE_OP_REGISTER=0x01,
@@ -28,7 +29,6 @@ typedef enum{
 typedef enum{
 	LMLINE_GUESS=0x01,
 	LMLINE_ONLINE,
-
 	LMLINE_CHAT,
 	LMLINE_SERVER,
 }LMLine_protocol_UserStatus;
@@ -49,6 +49,28 @@ typedef struct {
 	char username[USERNAME_MAXLEN];
 	char password[PASSWD_MAXLEN];
 }LMLine_protocol_account;	
+
+
+//	use this packet to handle Make Connect to Others  & Chat with Others BUT excluse FILE Transfer 
+typedef struct {
+	
+	// this field to specific whether connection is SUCCESS or FAIL
+	uint8_t magic;
+	// this two field is MAINly for server to store the history message more convenient !
+	char srcusername[USERNAME_MAXLEN], dstusername[USERNAME_MAXLEN];
+	// Only message Content 
+	char message[MSG_MAXLEN];
+}LMLINE_protocol_communicate;
+
+
+
+
+
+
+
+
+
+
 
 
 

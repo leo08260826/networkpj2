@@ -14,7 +14,9 @@
 #include <string>
 #include <string.h>
 #include "Interface.h"
+#include <sys/stat.h> 
 
+using namespace std;
 int UserStatus = LMLINE_GUESS;
 
 int init_service(int sockfd, uint8_t op, char* username, char* password){
@@ -36,6 +38,7 @@ int init_service(int sockfd, uint8_t op, char* username, char* password){
 	send(sockfd, &header, sizeof(header), 0);
 	send(sockfd, &account, sizeof(account), 0);
 
+	/////////////////////////
 	// prepare receive packet
 	LMLine_protocol_header res_header;
 	LMLine_protocol_account res_account;
@@ -91,25 +94,94 @@ void welcome_process(int sockfd){
 		}
 	}
 	else{
-		printf("Invalid Command\n");
+		printf("\nInvalid Command\n");
 		Welcome_Interface();
 	}
 }
 
-void logout(){
-	printf("haven't done yet XD.\n");
-	//TODO
+void logout(int sockfd){
+	
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_LOGOUT;
+	header.status = UserStatus;
+	
+	// Only need to send header Dont need to get the response
+	send(sockfd, &header, sizeof(header), 0);
+
+	UserStatus = LMLINE_GUESS;
+
+	return;
+}
+
+void connecttouser(int sockfd){
+
+	char connectusername[USERNAME_MAXLEN];
+	scanf("%s", &connectusername);
+
+	// Prepare packet and Send Request to Server 
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_CONNECT;
+	header.status = UserStatus;
+
+	LMLINE_protocol_communicate communitcate_packet;
+	memset(&communitcate_packet, 0, sizeof(LMLINE_protocol_communicate));
+	strcpy(communitcate_packet.dstusername, connectusername);
+
+	send(sockfd, &header, sizeof(header), 0);
+	send(sockfd, &communitcate_packet, sizeof(communitcate_packet), 0);
+
+
+	//////////////////
+	// Receive packet
+	LMLine_protocol_header res_header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+
+	LMLINE_protocol_communicate res_communitcate_packet;
+	memset(&communitcate_packet, 0, sizeof(LMLINE_protocol_communicate));
+
+	recv(sockfd, &res_header, sizeof(res_header), 0);
+	recv(sockfd, &res_communitcate_packet, sizeof(res_communitcate_packet), 0);
+
+	if (res_header.op != LMLINE_OP_CONNECT || res_header.status != LMLINE_SERVER || res_communitcate_packet.magic != LMLINE_SUCCESS)
+		return 0;
+	else
+		return 1;
+
 }
 
 void user_process(int sockfd){
-	string cmd;
-	cin>>cmd
+	char cmd[CMD_LEN];
+	scanf("%s", cmd);
 
-	if(cmd == "/logout"){
-		logout();	
+	if (strcmp(cmd, "/h") == 0){
+		Online_Interface();
 	}
-	//TODO:
-
+	else if (strcmp(cmd, "/logout") == 0){
+		logout(sockfd);
+		Welcome_Interface();
+	}
+	else if (strcmp(cmd, "/c") == 0){
+		if (connecttouser(sockfd)){
+			UserStatus = LMLINE_CHAT;
+			Chat_Interface();
+		}
+		else{
+			printf("\nConnect Fail Due to username not Exist\n");
+			Online_Interface();
+		}
+	}
+	else if (strcmp(cmd, "/f") == 0){
+		//TODO
+	}
+	else if (strcmp(cmd, "/lf") == 0){
+		//TODO
+	}
+	else{
+		printf("\nInvalid Command\n");
+		Online_Interface();
+	}
 }
 
 void handle_user_request(int sockfd){
@@ -119,7 +191,7 @@ void handle_user_request(int sockfd){
 			welcome_process(sockfd);
 			break;
 		case LMLINE_ONLINE:
-			user_process();
+			user_process(sockfd);
 			break;
 		case LMLINE_CHAT:
 			//chat_process();
@@ -130,8 +202,6 @@ void handle_user_request(int sockfd){
 
 }
 
-
-using namespace std;
 int main(int argc,char* argv[]){
 	//argv[1]=host //argv[2]=port
 	if(argc!=3)
@@ -195,7 +265,6 @@ int main(int argc,char* argv[]){
 		if (FD_ISSET(STDIN_FILENO,&working_readset)){
 			handle_user_request(sockfd);
 		}	// 
-
 
 
 
