@@ -27,7 +27,7 @@ void Online_Interface(){
 		"HELP:\n"
 		"/c [username]	-> Chat to [username]\n"
 		"/logout		-> Logout\n"
-		"/f [username]	-> Add [username] as friend\n"
+		"/f -add/-del [username]	-> Add(or del) [username] as friend\n"
 		"/lf		-> List friends\n"
 		"/h		-> Show the \"HELP\" interfacw\n");
 }

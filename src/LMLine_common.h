@@ -23,6 +23,9 @@ typedef enum{
 	LMLINE_OP_CONNECT,
 	LMLINE_OP_CHAT,
 	LMLINE_OP_FILE_SEND,
+	LMLINE_OP_FRIEND_ADD,
+	LMLINE_OP_FRIEND_DEL,
+	LMLINE_OP_FRIEND_SHOW,
 	LMLINE_OP_QUERY,
 	LMLINE_OP_LOGIN
 }LMLine_protocol_op;
@@ -55,7 +58,6 @@ typedef struct {
 
 //	use this packet to handle Make Connect to Others  & Chat with Others BUT excluse FILE Transfer 
 typedef struct {
-	
 	// this field to specific whether connection is SUCCESS or FAIL
 	uint8_t magic;
 	// this two field is MAINly for server to store the history message more convenient !

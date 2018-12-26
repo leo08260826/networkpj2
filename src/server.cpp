@@ -43,6 +43,24 @@ void InitUserList(){
 	return;
 }
 
+void ActivateUser(string username){
+
+	char* DIR_PATH = (char*)malloc(30);
+	strcpy(DIR_PATH, USR_DIR_PATH);
+	strcat(DIR_PATH, username.c_str());
+	mkdir(DIR_PATH, 0777);
+	printf("A client register success\n");
+	
+	// Need to Update ExistUserList
+	ExistUserList.push_back(username);
+
+	// Need to Init FriendList;
+	string filepath = "./USER/" + username + "/friendlist" ;
+	fstream f(filepath.c_str(), ios::out);
+	f.close();
+	printf("create empty friendlist:%s\n", filepath.c_str());
+
+}
 
 
 int ReturnUsernameFromFile(uint8_t op, string username, string password){
@@ -106,13 +124,7 @@ void UserRegister(int client_fd){
 	else{ 		// register success
 		magic = LMLINE_SUCCESS;
 		//	Need to Create a unique dir for New Register
-		char* DIR_PATH = (char*)malloc(30);
-		strcpy(DIR_PATH, USR_DIR_PATH);
-		strcat(DIR_PATH, reg_username.c_str());
-		mkdir(DIR_PATH, 0666);
-		printf("A client register success\n");
-		// Need to Update ExistUserList
-		ExistUserList.push_back(reg_username);
+		ActivateUser(reg_username);
 	}
 
 	LMLine_protocol_header header;
@@ -184,7 +196,7 @@ void UserLogout(int client_fd){
 	// return;
 }
 
-int CheckConnectValid(string username){
+int CheckUserExist(string username){
 	vector<string>::iterator it = find(ExistUserList.begin(), ExistUserList.end(), username);
 	if (it != ExistUserList.end())	return 1;
 	else		return 0;
@@ -208,7 +220,7 @@ void UserConnect(int client_fd){
 	uint8_t magic; 
 
 	string connectusername = req_communicate.dstusername;
-	if (CheckConnectValid(connectusername) != 0){		// Connect is valid(Username exist), construct connect
+	if (CheckUserExist(connectusername) != 0){		// Connect is valid(Username exist), construct connect
 		ConstructConnect(client_fd, connectusername);
 		magic = LMLINE_SUCCESS;
 	}
@@ -310,6 +322,103 @@ void UserFile(int client_fd){
 
 }
 
+void UserFriend(uint8_t op, int client_fd){
+
+	string username = ReverseUsernameTLB[client_fd];
+	string filepath = "./USER/" + username + "/friendlist" ;
+	string entry;
+
+	LMLine_protocol_communicate req_communicate;
+	memset(&req_communicate, 0, sizeof(LMLine_protocol_communicate));
+	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
+	string friendname = req_communicate.dstusername;
+
+
+	uint8_t magic;
+	if (CheckUserExist(friendname)){
+		printf("friend username exist %s\n", friendname.c_str());
+		if (op == LMLINE_OP_FRIEND_ADD ){
+
+			fstream fout(filepath.c_str(), ios::out | ios::app);
+			fout << friendname << endl ;
+			fout.close();
+
+			magic = LMLINE_SUCCESS;
+		}
+		else if (op == LMLINE_OP_FRIEND_DEL){
+
+			magic = LMLINE_FAIL;
+
+			fstream fin(filepath.c_str(), ios::in );
+			vector<string>	friendlist;
+			while(getline(fin, entry)){
+				if (entry != friendname)
+					friendlist.push_back(entry);
+				if (entry == friendname)
+					magic = LMLINE_SUCCESS;
+			}
+			fin.close();
+			fstream fout(filepath.c_str(), ios::out);
+			for(int i=0; i<friendlist.size(); i++)
+				fout << friendlist[i] << endl;
+			fout.close();
+		}
+	}
+	else{
+		magic = LMLINE_FAIL;
+	}
+
+	// Send Back to Original User
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(header));
+	LMLine_protocol_communicate res_communicate;
+	memset(&res_communicate, 0, sizeof(res_communicate));
+
+	header.op = op;
+	header.status = LMLINE_SERVER;
+	res_communicate.magic = magic;
+
+	send(client_fd, &header, sizeof(header), 0);
+	send(client_fd, &res_communicate, sizeof(res_communicate), 0);
+
+
+}
+
+void UserShowFriend(int client_fd){
+
+	string username = ReverseUsernameTLB[client_fd];
+	string filepath = "./USER/" + username + "/friendlist" ;
+	string entry, list = "\nFriend List\n";
+	int count = 1;
+
+	fstream fin(filepath, ios::in);
+	while(getline(fin, entry)){
+		char line[30];
+		sprintf(line, "%d: %s\n", count, entry.c_str());
+		string tmpline = line;
+		list += line; 
+		count += 1;
+	}
+
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	LMLine_protocol_file fileheader;
+	memset(&fileheader, 0, sizeof(LMLine_protocol_file));
+
+	header.op = LMLINE_OP_FRIEND_SHOW;
+	header.status = LMLINE_SERVER;
+
+	fileheader.magic = LMLINE_SUCCESS;
+	fileheader.file_len = list.size();
+
+	send(client_fd, &header, sizeof(header), 0);
+	send(client_fd, &fileheader, sizeof(fileheader), 0);
+	send(client_fd, list.c_str(), list.size(), 0);
+
+	printf("User:%s ask to show friendlist\n%s\n", username.c_str(), list.c_str());
+}
+
+
 void handle_client_request(int client_fd, fd_set* readset){
 
 	// first accept header 
@@ -338,6 +447,15 @@ void handle_client_request(int client_fd, fd_set* readset){
 			break;
 		case LMLINE_OP_FILE_SEND:
 			UserFile(client_fd);
+			break;
+		case LMLINE_OP_FRIEND_ADD:
+			UserFriend(LMLINE_OP_FRIEND_ADD, client_fd);
+			break;
+		case LMLINE_OP_FRIEND_DEL:
+			UserFriend(LMLINE_OP_FRIEND_DEL, client_fd);
+			break;
+		case LMLINE_OP_FRIEND_SHOW:
+			UserShowFriend(client_fd);
 			break;
 		default:
 			break;

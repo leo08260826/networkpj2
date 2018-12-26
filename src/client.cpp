@@ -117,7 +117,7 @@ void logout(int sockfd){
 int connecttouser(int sockfd){
 
 	char connectusername[USERNAME_MAXLEN];
-	scanf("%s", &connectusername);
+	scanf("%s", connectusername);
 
 	// Prepare packet and Send Request to Server 
 	LMLine_protocol_header header;
@@ -150,6 +150,74 @@ int connecttouser(int sockfd){
 		return 1;
 
 }
+void AddFriend(int sockfd){
+
+	char mode[5], username[USERNAME_MAXLEN]; 
+	scanf("%s %s",mode, username);
+
+
+	uint8_t op;
+	if (strcmp(mode, "-add") == 0){
+		op = LMLINE_OP_FRIEND_ADD;
+	}
+	else if (strcmp(mode, "-del") == 0){
+		op = LMLINE_OP_FRIEND_DEL;
+	}
+
+	// Send Add(or Del) friend Req
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = op;
+	header.status = UserStatus;
+
+	LMLine_protocol_communicate communicate_packet;
+	memset(&communicate_packet, 0, sizeof(LMLine_protocol_communicate));
+	strcpy(communicate_packet.dstusername, username);
+
+	send(sockfd, &header, sizeof(header), 0);
+	send(sockfd, &communicate_packet, sizeof(communicate_packet), 0);
+
+	// Receive the response
+	LMLine_protocol_communicate res_communicate_packet;
+	memset(&res_communicate_packet, 0, sizeof(LMLine_protocol_communicate));
+
+	recv(sockfd, &header, sizeof(header), 0);
+	recv(sockfd, &res_communicate_packet, sizeof(res_communicate_packet), 0);
+
+	if (res_communicate_packet.magic == LMLINE_SUCCESS)
+		printf("\n%s User:%s SUCCESS\n", mode, username);
+	else
+		printf("\n%s User:%s FAIL\n", mode, username);
+}
+
+void ShowFriend(int sockfd){
+
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+
+	header.op = LMLINE_OP_FRIEND_SHOW;
+	header.status = UserStatus;
+	send(sockfd, &header, sizeof(header), 0);
+
+
+	LMLine_protocol_file friendfileheader;
+	memset(&friendfileheader, 0, sizeof(LMLine_protocol_file));
+	recv(sockfd, &header, sizeof(header), 0);
+	recv(sockfd, &friendfileheader, sizeof(friendfileheader), 0);
+	
+	if (header.op != LMLINE_OP_FRIEND_SHOW || header.status != LMLINE_SERVER || friendfileheader.magic != LMLINE_SUCCESS)
+		return;
+	else{
+		int friendfilelen = friendfileheader.file_len;
+		char friendfile[FILE_MAXLEN];
+		recv(sockfd, friendfile, friendfilelen, 0);
+		printf("\n%s\n", friendfile);
+		return;
+	}
+
+
+}
+
 
 void user_process(int sockfd){
 	char cmd[CMD_LEN];
@@ -173,10 +241,12 @@ void user_process(int sockfd){
 		}
 	}
 	else if (strcmp(cmd, "/f") == 0){
-		//TODO
+		AddFriend(sockfd);	// Use to Add or Del friend
+		//Online_Interface();
 	}
 	else if (strcmp(cmd, "/lf") == 0){
-		//TODO
+		ShowFriend(sockfd);
+		//Online_Interface();
 	}
 	else{
 		printf("\nInvalid Command\n");
@@ -219,6 +289,7 @@ void send_msg(int sockfd){
 }
 
 void send_file(int sockfd){
+
 	char path[MSG_MAXLEN];
 	scanf("%s",path);
 	char filename[FILENAME_MAXLEN];
