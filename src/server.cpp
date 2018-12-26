@@ -15,7 +15,8 @@
 #include <string.h>
 #include <map>
 #include <sys/stat.h> 
-
+#include <vector>
+#include <algorithm>
 using namespace std;
 
 
@@ -25,7 +26,24 @@ map<string, int> UsernameTLB;
 // to look up from file descriptor -> username
 map<int, string> ReverseUsernameTLB;
 
+vector<string> 	ExistUserList;
 int ConnectionList[MAX_CLIENT] = {0}; 
+
+
+void InitUserList(){
+
+	fstream fin(ACCOUNT_FILE_PATH, ios::in);
+	string entry;
+	string pattern=",";
+	while(getline(fin, entry)){
+		int pos = entry.find(pattern, 0);
+		string username = entry.substr(0, pos);
+		ExistUserList.push_back(username);
+	}
+	return;
+}
+
+
 
 int ReturnUsernameFromFile(uint8_t op, string username, string password){
 	
@@ -38,8 +56,6 @@ int ReturnUsernameFromFile(uint8_t op, string username, string password){
 		int pos = entry.find(pattern, 0);
 		string tmpusername = entry.substr(0, pos);
 		string tmppassword = entry.substr(pos+1, entry.size());
-
-
 
 		if (username == tmpusername && password == tmppassword){
 			cout << tmpusername << " " << tmppassword << endl;
@@ -95,6 +111,8 @@ void UserRegister(int client_fd){
 		strcat(DIR_PATH, reg_username.c_str());
 		mkdir(DIR_PATH, 0666);
 		printf("A client register success\n");
+		// Need to Update ExistUserList
+		ExistUserList.push_back(reg_username);
 	}
 
 	LMLine_protocol_header header;
@@ -166,6 +184,21 @@ void UserLogout(int client_fd){
 	// return;
 }
 
+int CheckConnectValid(string username){
+	vector<string>::iterator it = find(ExistUserList.begin(), ExistUserList.end(), username);
+	if (it != ExistUserList.end())	return 1;
+	else		return 0;
+}
+
+void ConstructConnect(int client_fd, string connectusername){
+	// first get the connect user fd
+	int connectuserid = UsernameTLB[connectusername];
+	// then set the connection. Notice that this is one-side, not both-side
+	ConnectionList[client_fd] = connectuserid;
+}
+
+
+
 void UserConnect(int client_fd){
 
 	LMLine_protocol_communicate req_communicate;
@@ -175,13 +208,19 @@ void UserConnect(int client_fd){
 	uint8_t magic; 
 
 	string connectusername = req_communicate.dstusername;
-	/*if (CheckConnectValid(connectusername) != 0){		// Connect is valid, construct connect
+	if (CheckConnectValid(connectusername) != 0){		// Connect is valid(Username exist), construct connect
 		ConstructConnect(client_fd, connectusername);
 		magic = LMLINE_SUCCESS;
 	}
 	else{
 		magic = LMLINE_FAIL;
-	}*/
+		printf("connect fail\n");
+		vector<string>::iterator it;
+		for(it=ExistUserList.begin();it!=ExistUserList.end();it++)
+			cout << *it << endl;
+	}
+
+	// Send Back the Response back to original client 
 	LMLine_protocol_header header;
 	memset(&header, 0, sizeof(LMLine_protocol_header));
 	header.op = LMLINE_OP_CONNECT;
@@ -190,13 +229,15 @@ void UserConnect(int client_fd){
 
 	LMLine_protocol_communicate res_communicate;
 	memset(&res_communicate, 0, sizeof(LMLine_protocol_communicate));
-	/*
-	account.magic = magic;
-	send(client_fd, &account, sizeof(account), 0);*/
+	
+	res_communicate.magic = magic;
+	send(client_fd, &res_communicate, sizeof(req_communicate), 0);
+	// 
 
 }
 
 void UserChat(int client_fd){
+
 	LMLine_protocol_communicate req_communicate;
 	memset(&req_communicate, 0, sizeof(req_communicate));
 	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
@@ -209,6 +250,12 @@ void UserChat(int client_fd){
 
 	//TODO
 	//deliver to another
+
+
+
+
+
+	//Send Back to Original client, To ACK
 	LMLine_protocol_header header;
 	memset(&header, 0 ,sizeof(LMLine_protocol_header));
 	header.op = LMLINE_OP_CHAT;
@@ -220,9 +267,15 @@ void UserChat(int client_fd){
 	res_communicate.magic = LMLINE_SUCCESS;//need modify
 	send(client_fd, &res_communicate,sizeof(res_communicate),0);
 
+
+	// Need to write the msg to HISTORY msg, and the history msg is 2-side too. Store: A->B, B->A.
+
+
+
 }
 
 void UserFile(int client_fd){
+
 	LMLine_protocol_file req_file;
 	memset(&req_file,0,sizeof(req_file));
 	recv(client_fd, &req_file,sizeof(req_file),0);
@@ -235,9 +288,15 @@ void UserFile(int client_fd){
 	strcpy(filename,req_file.filename);
 	file_len=req_file.file_len;
 	recv(client_fd,file,file_len,0);
-	//TODO
-	//deliver to another
 	
+	//TODO
+	//deliver to another, ONLY SEND TO ONLINE USER, which menas the CONNECT IS 2-side
+	
+
+
+
+
+	//Send Back to Original client, To ACK
 	LMLine_protocol_header header;
 	memset(&header,0,sizeof(LMLine_protocol_header));
 	header.op = LMLINE_OP_FILE_SEND;
@@ -320,6 +379,9 @@ int main(int argc,char* argv[]){
 
 	string clients_name[MAX_FD];
 	
+	// Have to Init the exist userlist every time after reboot
+	InitUserList();
+
 	while(1)
 	{
 		memcpy(&working_readset,&readset,sizeof(fd_set));

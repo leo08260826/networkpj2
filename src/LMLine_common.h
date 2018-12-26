@@ -65,8 +65,7 @@ typedef struct {
 }LMLine_protocol_communicate;
 
 typedef struct {
-	uint8_t magic;
-	
+	uint8_t magic;	
 	char srcusername[USERNAME_MAXLEN],dstusername[USERNAME_MAXLEN];
 	char filename[FILENAME_MAXLEN];
 	int file_len;
