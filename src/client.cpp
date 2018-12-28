@@ -312,14 +312,14 @@ void send_file(int sockfd){
 	header.status = UserStatus;
 
 	LMLine_protocol_file file_packet;
-	memset(&file_packet, 0, sizeof(LMLine_protocol_communicate));
+	memset(&file_packet, 0, sizeof(LMLine_protocol_file));
 
 	strcpy(file_packet.filename,filename);
 	file_packet.file_len=file_len;
 	
 	send(sockfd,&header,sizeof(header),0);
 	send(sockfd,&file_packet,sizeof(file_packet),0);
-	send(sockfd,file,file_len,0);
+	send(sockfd,&file,file_len,0);
 
 	//recv
 	LMLine_protocol_header res_header;
@@ -335,6 +335,76 @@ void send_file(int sockfd){
 		printf("fails to send file\n");
 	else
 		printf("success to send file\n");
+
+}
+
+void handle_msg(int sockfd){
+	char msg[MSG_MAXLEN];
+	
+	LMLine_protocol_header res_header;
+	memset(&res_header,0,sizeof(res_header));
+	recv(sockfd,&res_header,sizeof(res_header),0);
+
+	if(res_header.op == LMLINE_OP_CHAT){
+		//chat
+		LMLine_protocol_communicate res_communicate;
+		memset(&res_communicate,0,sizeof(res_communicate));
+		recv(sockfd,&res_communicate,sizeof(res_communicate),0);
+
+		strcpy(msg,res_communicate.message);
+		printf(":%s\n",msg);
+
+		LMLine_protocol_header header;
+		memset(&header,0,sizeof(header));
+		header.op = LMLINE_OP_CHAT;
+		header.status = LMLINE_CHAT;
+		send(sockfd,&header,sizeof(header),0);
+
+		LMLine_protocol_communicate communicate;
+		memset(&communicate,0,sizeof(communicate));
+		communicate.magic = LMLINE_SUCCESS;
+		send(sockfd,&communicate,sizeof(communicate),0);
+	}
+	else if(res_header.op == LMLINE_OP_FILE_SEND){
+		//file send
+		LMLine_protocol_file res_file_packet;
+		memset(&res_file_packet,0,sizeof(res_file_packet));
+		recv(sockfd,&res_file_packet,sizeof(res_file_packet),0);
+
+		//file
+		char file[FILE_MAXLEN];
+		recv(sockfd,&file,res_file_packet.file_len,0);
+		//write file
+		fstream file_f;
+		file_f.open(res_file_packet.filename,ios::out|ios::trunc);
+		file_f.write(file,res_file_packet.file_len);
+		file_f.close();
+
+		printf(":(send a file:%s)\n",res_file_packet.filename);
+
+		LMLine_protocol_header header;
+		memset(&header,0,sizeof(header));
+		header.op = LMLINE_OP_FILE_SEND;
+		header.status = LMLINE_OP_FILE_SEND;
+		send(sockfd,&header,sizeof(header),0);
+
+		LMLine_protocol_file file_packet;
+		memset(&file_packet,0,sizeof(file_packet));
+		file_packet.magic = LMLINE_SUCCESS;
+		send(sockfd,&file_packet,sizeof(file_packet),0);
+	}
+}
+
+void leave(int sockfd){
+	//leaving chatroom
+	LMLine_protocol_header header;
+	memset(&header,0,sizeof(header));
+	header.op = LMLINE_OP_LEAVE;
+	header.status = UserStatus;
+	send(sockfd, &header,sizeof(header),0);
+
+	//TODO
+	//how to leave?
 
 }
 
@@ -354,14 +424,12 @@ void chat_process(int sockfd){
 		send_file(sockfd);
 	}
 	else if (strcmp(cmd,"/l") == 0){
-		//TODO
-		//leave()
+		leave(sockfd);
 		UserStatus = LMLINE_ONLINE;
 		Online_Interface();
 	}
 	else{
 		printf("\nInvaild Command\n");
-		Chat_Interface();
 	}
 }
 
@@ -445,11 +513,11 @@ int main(int argc,char* argv[]){
 			continue;
 		if (FD_ISSET(STDIN_FILENO,&working_readset)){
 			handle_user_request(sockfd);
-		}	// 
-
-
-
-
+		}	//
+		if (FD_ISSET(sockfd,&working_readset) && UserStatus==LMLINE_CHAT ){
+			//msg arrives
+			handle_msg(sockfd);
+		}	
 
 	}
 	

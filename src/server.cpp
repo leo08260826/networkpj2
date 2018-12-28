@@ -260,11 +260,56 @@ void UserChat(int client_fd){
 	strcpy(msg,req_communicate.message);
 	printf("msg:%s\n",msg);
 
-	//TODO
 	//deliver to another
+	int if_another_online = 0;
+	if(ConnectionList[ConnectionList[client_fd]]==client_fd){
+		if_another_online = 1;
+		//send
+		LMLine_protocol_header header;
+		memset(&header,0,sizeof(LMLine_protocol_header));
+		header.op = LMLINE_OP_CHAT;
+		header.status = LMLINE_SERVER;
+		send(ConnectionList[client_fd],&header,sizeof(header),0);
 
+		LMLine_protocol_communicate send_communicate;
+		memset(&send_communicate,0,sizeof(LMLine_protocol_communicate));
+		strcpy(send_communicate.message,msg);
+		send(ConnectionList[client_fd],&send_communicate,sizeof(send_communicate),0);
 
+		//recv
+		LMLine_protocol_header res_header;
+		memset(&res_header,0,sizeof(LMLine_protocol_header));
+		recv(ConnectionList[client_fd],&res_header,sizeof(res_header),0);
 
+		LMLine_protocol_communicate res_communicate;
+		memset(&res_communicate,0,sizeof(res_communicate));
+		recv(ConnectionList[client_fd],&res_communicate,sizeof(res_communicate),0);
+	
+	}
+
+	//TODO
+	//history I:for msg sended by th user U:otherwise
+	string history_path;
+	history_path+=ReverseUsernameTLB[client_fd];
+	history_path+="_";
+	history_path+=ReverseUsernameTLB[ConnectionList[client_fd]];
+	fstream file;
+	file.open(history_path,ios::app);
+	file.write("I",1);
+	file.write(msg,strlen(msg));
+	file.write("\n",1);
+	file.close();
+
+	string history_path_rev;
+	history_path_rev+=ReverseUsernameTLB[ConnectionList[client_fd]];
+	history_path_rev+="_";
+	history_path_rev+=ReverseUsernameTLB[client_fd];
+	fstream file_rev;
+	file_rev.open(history_path_rev,ios::app);
+	file_rev.write("U",1);
+	file_rev.write(msg,strlen(msg));
+	file_rev.write("\n",1);
+	file_rev.close();
 
 
 	//Send Back to Original client, To ACK
@@ -299,14 +344,37 @@ void UserFile(int client_fd){
 	int file_len;
 	strcpy(filename,req_file.filename);
 	file_len=req_file.file_len;
-	recv(client_fd,file,file_len,0);
+	recv(client_fd,&file,file_len,0);
 	
-	//TODO
 	//deliver to another, ONLY SEND TO ONLINE USER, which menas the CONNECT IS 2-side
 	
+	int if_another_online = 0;
+	if(ConnectionList[ConnectionList[client_fd]]==client_fd){
+		if_another_online = 1;
+		//send
+		LMLine_protocol_header header;
+		memset(&header,0,sizeof(LMLine_protocol_header));
+		header.op = LMLINE_OP_FILE_SEND;
+		header.status = LMLINE_SERVER;
+		send(ConnectionList[client_fd],&header,sizeof(header),0);
 
+		LMLine_protocol_file file_packet;
+		memset(&file_packet,0,sizeof(file_packet));
+		strcpy(file_packet.filename,filename);
+		file_packet.file_len=file_len;
+		send(ConnectionList[client_fd],&file_packet,sizeof(file_packet),0);
+		send(ConnectionList[client_fd],&file,file_len,0);
 
+		//recv
+		LMLine_protocol_header res_header;
+		memset(&res_header,0,sizeof(LMLine_protocol_header));
+		recv(ConnectionList[client_fd],&res_header,sizeof(res_header),0);
 
+		LMLine_protocol_communicate res_file_packet;
+		memset(&res_file_packet,0,sizeof(res_file_packet));
+		recv(ConnectionList[client_fd],&res_file_packet,sizeof(res_file_packet),0);
+	
+	}
 
 	//Send Back to Original client, To ACK
 	LMLine_protocol_header header;
@@ -317,7 +385,7 @@ void UserFile(int client_fd){
 
 	LMLine_protocol_file res_file;
 	memset(&res_file,0,sizeof(LMLine_protocol_file));
-	res_file.magic = LMLINE_SUCCESS;//need modify
+	res_file.magic =(if_another_online)? LMLINE_SUCCESS:LMLINE_FAIL;
 	send(client_fd,&res_file,sizeof(res_file),0);
 
 }
@@ -418,6 +486,10 @@ void UserShowFriend(int client_fd){
 	printf("User:%s ask to show friendlist\n%s\n", username.c_str(), list.c_str());
 }
 
+void UserLeave(int client_fd){
+	//leaving?
+
+}
 
 void handle_client_request(int client_fd, fd_set* readset){
 
@@ -456,6 +528,9 @@ void handle_client_request(int client_fd, fd_set* readset){
 			break;
 		case LMLINE_OP_FRIEND_SHOW:
 			UserShowFriend(client_fd);
+			break;
+		case LMLINE_OP_LEAVE:
+			UserLeave(client_fd);
 			break;
 		default:
 			break;

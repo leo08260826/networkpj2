@@ -13,6 +13,7 @@
 #define MSG_MAXLEN 1024
 #define FILENAME_MAXLEN 20
 #define FILE_MAXLEN 1000000
+#define PATH_MAXLEN 1024
 
 char ACCOUNT_FILE_PATH[30] = "./Account/account.txt";
 char USR_DIR_PATH[20] = "./USER/" ;
@@ -27,7 +28,8 @@ typedef enum{
 	LMLINE_OP_FRIEND_DEL,
 	LMLINE_OP_FRIEND_SHOW,
 	LMLINE_OP_QUERY,
-	LMLINE_OP_LOGIN
+	LMLINE_OP_LOGIN,
+	LMLINE_OP_LEAVE
 }LMLine_protocol_op;
 
 
