@@ -41,7 +41,7 @@ void Chat_Interface(){
 	printf("HELP:\n"
 		"/log		-> Show all the historical message\n"
 		"/s [message]	-> Send \"[message]\"\n"
-		"/file [path]	-> Send file\n"
+		"/file [number]	-> Send [number] file(s)\n"
 		"/l		-> Leave the chatroom\n"
 		"/h		-> Shoe the \"HELP\" interface\n");
 }

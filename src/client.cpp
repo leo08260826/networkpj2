@@ -291,12 +291,12 @@ void send_msg(int sockfd){
 */
 }
 
-void send_file(int sockfd){
-
+void send_file(int sockfd,int num){
+	printf("(Enter the path of the %d-th file:)\n",num+1);
 	char path[MSG_MAXLEN];
 	scanf("%s",path);
 	char filename[FILENAME_MAXLEN];
-	printf("(Enter the name of the file:)\n");
+	printf("(Enter the name of the %d-th file:)\n",num+1);
 	scanf("%s",filename);
 	char file[FILE_MAXLEN];
 	FILE *fp=fopen(path,"rb");
@@ -340,6 +340,16 @@ void send_file(int sockfd){
 	else
 		printf("(success to send file)\n");
 
+}
+
+void pre_send_file(int sockfd){
+	int num;
+	scanf("%d",&num);
+	printf("=====start sending file=====\n");
+	for(int i=0;i<num;i++){
+		send_file(sockfd,i);
+	}
+	printf("=====end sending file=======\n");
 }
 
 void handle_msg(int sockfd){
@@ -460,7 +470,7 @@ void chat_process(int sockfd){
 		send_msg(sockfd);
 	}
 	else if (strcmp(cmd,"/file") == 0){
-		send_file(sockfd);
+		pre_send_file(sockfd);
 	}
 	else if (strcmp(cmd,"/l") == 0){
 		leave(sockfd);
