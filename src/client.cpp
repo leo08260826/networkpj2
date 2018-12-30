@@ -18,6 +18,7 @@
 
 using namespace std;
 int UserStatus = LMLINE_GUESS;
+char ConnectionUsername[USERNAME_MAXLEN];
 
 int init_service(int sockfd, uint8_t op, char* username, char* password){
 
@@ -53,10 +54,7 @@ int init_service(int sockfd, uint8_t op, char* username, char* password){
 		return 1;
 	else
 		return 0;
-
-
 }
-
 
 void welcome_process(int sockfd){
 	char cmd[CMD_LEN];
@@ -118,6 +116,9 @@ int connecttouser(int sockfd){
 
 	char connectusername[USERNAME_MAXLEN];
 	scanf("%s", connectusername);
+
+	strcpy(ConnectionUsername,connectusername);
+	printf("Connecting to %s\n",ConnectionUsername);
 
 	// Prepare packet and Send Request to Server 
 	LMLine_protocol_header header;
@@ -236,7 +237,7 @@ void user_process(int sockfd){
 			Chat_Interface();
 		}
 		else{
-			printf("\nConnect Fail Due to username not Exist\n");
+			printf("(Connect Fail Due to username not Exist)\n");
 			Online_Interface();
 		}
 	}
@@ -249,8 +250,8 @@ void user_process(int sockfd){
 		//Online_Interface();
 	}
 	else{
-		printf("\nInvalid Command\n");
-		Online_Interface();
+		printf("(Invalid Command)\n");
+		//Online_Interface();
 	}
 }
 
@@ -266,9 +267,10 @@ void send_msg(int sockfd){
 
 	LMLine_protocol_communicate communicate_packet;
 	memset(&communicate_packet, 0, sizeof(LMLine_protocol_communicate));
-
-	strcpy(communicate_packet.message,msg);
 	
+	strcpy(communicate_packet.message,msg);
+	strcpy(communicate_packet.dstusername,ConnectionUsername);
+
 	send(sockfd,&header,sizeof(header),0);
 	send(sockfd,&communicate_packet,sizeof(communicate_packet),0);
 	
@@ -281,11 +283,12 @@ void send_msg(int sockfd){
 
 	recv(sockfd, &res_header,sizeof(res_header), 0);
 	recv(sockfd, &res_communicate_packet,sizeof(res_communicate_packet),0);
-
+/*
 	if(res_header.op != LMLINE_OP_CHAT || res_header.status != LMLINE_SERVER || res_communicate_packet.magic != LMLINE_SUCCESS)	
 			printf("fails to send\n");
 	else
 			printf("success to send\n");
+*/
 }
 
 void send_file(int sockfd){
@@ -293,13 +296,13 @@ void send_file(int sockfd){
 	char path[MSG_MAXLEN];
 	scanf("%s",path);
 	char filename[FILENAME_MAXLEN];
-	printf("Enter the name of the file:\n");
+	printf("(Enter the name of the file:)\n");
 	scanf("%s",filename);
 	char file[FILE_MAXLEN];
 	FILE *fp=fopen(path,"rb");
 	if(fp==NULL)
 	{
-		printf("wrong path\n");
+		printf("(wrong path)\n");
 		return;
 	}
 	int file_len = fread(file,sizeof(char),sizeof(file),fp);
@@ -314,6 +317,7 @@ void send_file(int sockfd){
 	LMLine_protocol_file file_packet;
 	memset(&file_packet, 0, sizeof(LMLine_protocol_file));
 
+	strcpy(file_packet.dstusername,ConnectionUsername);
 	strcpy(file_packet.filename,filename);
 	file_packet.file_len=file_len;
 	
@@ -332,9 +336,9 @@ void send_file(int sockfd){
 	recv(sockfd,&res_file_packet,sizeof(res_file_packet),0);
 
 	if(res_header.op != LMLINE_OP_FILE_SEND || res_header.status != LMLINE_SERVER || res_file_packet.magic != LMLINE_SUCCESS)
-		printf("fails to send file\n");
+		printf("(fails to send file)\n");
 	else
-		printf("success to send file\n");
+		printf("(success to send file)\n");
 
 }
 
@@ -352,7 +356,7 @@ void handle_msg(int sockfd){
 		recv(sockfd,&res_communicate,sizeof(res_communicate),0);
 
 		strcpy(msg,res_communicate.message);
-		printf(":%s\n",msg);
+		printf("%s:%s\n",ConnectionUsername,msg);
 
 		LMLine_protocol_header header;
 		memset(&header,0,sizeof(header));
@@ -380,7 +384,7 @@ void handle_msg(int sockfd){
 		file_f.write(file,res_file_packet.file_len);
 		file_f.close();
 
-		printf(":(send a file:%s)\n",res_file_packet.filename);
+		printf("%s:(send a file:%s)\n",ConnectionUsername,res_file_packet.filename);
 
 		LMLine_protocol_header header;
 		memset(&header,0,sizeof(header));
@@ -397,14 +401,49 @@ void handle_msg(int sockfd){
 
 void leave(int sockfd){
 	//leaving chatroom
+	printf("(Left from chatroom with %s)\n",ConnectionUsername);
+	strcat(ConnectionUsername,"");
+
 	LMLine_protocol_header header;
 	memset(&header,0,sizeof(header));
 	header.op = LMLINE_OP_LEAVE;
 	header.status = UserStatus;
 	send(sockfd, &header,sizeof(header),0);
 
-	//TODO
-	//how to leave?
+	LMLine_protocol_header res_header;
+	memset(&res_header,0,sizeof(res_header));
+	recv(sockfd,&res_header,sizeof(res_header),0);
+}
+
+void query(int sockfd){
+	LMLine_protocol_header header;
+	memset(&header,0,sizeof(header));
+	header.op = LMLINE_OP_QUERY;
+	header.status = UserStatus;
+	send(sockfd,&header,sizeof(header),0);
+
+	printf("=====start logging======\n");
+
+	LMLine_protocol_communicate line_packet;
+	memset(&line_packet,0,sizeof(line_packet));
+	recv(sockfd,&line_packet,sizeof(line_packet),0);
+	while(line_packet.magic!=LMLINE_FAIL){
+		
+		char line_msg[MSG_MAXLEN];
+		strcpy(line_msg,line_packet.message);
+		if(line_msg[0]=='I'){
+			printf(":%s\n",&line_msg[1]);
+		}
+		else if(line_msg[0]=='U'){
+			printf("%s:%s\n",ConnectionUsername,&line_msg[1]);
+		}
+		else{
+			//pass
+		}
+		memset(&line_packet,0,sizeof(line_packet));
+		recv(sockfd,&line_packet,sizeof(line_packet),0);
+	}
+	printf("=====end of log=========\n");
 
 }
 
@@ -414,8 +453,8 @@ void chat_process(int sockfd){
 	if (strcmp(cmd,"/h") == 0){
 		Chat_Interface();
 	}
-	else if (strcmp(cmd,"log") == 0){
-		//TODO
+	else if (strcmp(cmd,"/log") == 0){
+		query(sockfd);
 	}
 	else if (strcmp(cmd,"/s") == 0){
 		send_msg(sockfd);
@@ -429,7 +468,7 @@ void chat_process(int sockfd){
 		Online_Interface();
 	}
 	else{
-		printf("\nInvaild Command\n");
+		printf("(Invaild Command)\n");
 	}
 }
 

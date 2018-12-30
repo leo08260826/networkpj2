@@ -27,8 +27,8 @@ map<string, int> UsernameTLB;
 map<int, string> ReverseUsernameTLB;
 
 vector<string> 	ExistUserList;
-int ConnectionList[MAX_CLIENT] = {0}; 
-
+map<string, string> ConnectionList;
+//int ConnectionList[MAX_CLIENT] = {0}; 
 
 void InitUserList(){
 
@@ -185,15 +185,12 @@ void UserLogin(int client_fd){
 }
 
 void UserLogout(int client_fd){
-
 	string username = ReverseUsernameTLB[client_fd];
+	ConnectionList.erase(username);
 	ReverseUsernameTLB.erase(client_fd);
 	UsernameTLB.erase(username);
 
 	printf("A client logout or close connect\n");
-
-	
-	// return;
 }
 
 int CheckUserExist(string username){
@@ -204,9 +201,10 @@ int CheckUserExist(string username){
 
 void ConstructConnect(int client_fd, string connectusername){
 	// first get the connect user fd
-	int connectuserid = UsernameTLB[connectusername];
+	//int connectuserid = UsernameTLB[connectusername];
 	// then set the connection. Notice that this is one-side, not both-side
-	ConnectionList[client_fd] = connectuserid;
+	//ConnectionList[client_fd] = connectuserid;
+	ConnectionList[ReverseUsernameTLB[client_fd]] = connectusername;
 }
 
 
@@ -257,42 +255,44 @@ void UserChat(int client_fd){
 	uint8_t magic;
 
 	char msg[MSG_MAXLEN];
+	string dst(req_communicate.dstusername);
 	strcpy(msg,req_communicate.message);
 	printf("msg:%s\n",msg);
 
+	int dst_fd = UsernameTLB[ConnectionList[ReverseUsernameTLB[client_fd]]];
 	//deliver to another
 	int if_another_online = 0;
-	if(ConnectionList[ConnectionList[client_fd]]==client_fd){
+	if(client_fd==UsernameTLB[ConnectionList[dst]]){
 		if_another_online = 1;
 		//send
 		LMLine_protocol_header header;
 		memset(&header,0,sizeof(LMLine_protocol_header));
 		header.op = LMLINE_OP_CHAT;
 		header.status = LMLINE_SERVER;
-		send(ConnectionList[client_fd],&header,sizeof(header),0);
+		send(dst_fd,&header,sizeof(header),0);
 
 		LMLine_protocol_communicate send_communicate;
 		memset(&send_communicate,0,sizeof(LMLine_protocol_communicate));
 		strcpy(send_communicate.message,msg);
-		send(ConnectionList[client_fd],&send_communicate,sizeof(send_communicate),0);
+		send(dst_fd,&send_communicate,sizeof(send_communicate),0);
 
 		//recv
 		LMLine_protocol_header res_header;
 		memset(&res_header,0,sizeof(LMLine_protocol_header));
-		recv(ConnectionList[client_fd],&res_header,sizeof(res_header),0);
+		recv(dst_fd,&res_header,sizeof(res_header),0);
 
 		LMLine_protocol_communicate res_communicate;
 		memset(&res_communicate,0,sizeof(res_communicate));
-		recv(ConnectionList[client_fd],&res_communicate,sizeof(res_communicate),0);
+		recv(dst_fd,&res_communicate,sizeof(res_communicate),0);
 	
 	}
 
-	//TODO
 	//history I:for msg sended by th user U:otherwise
+	//history from sender to receiver
 	string history_path;
 	history_path+=ReverseUsernameTLB[client_fd];
 	history_path+="_";
-	history_path+=ReverseUsernameTLB[ConnectionList[client_fd]];
+	history_path+=ConnectionList[ReverseUsernameTLB[client_fd]];
 	fstream file;
 	file.open(history_path,ios::app);
 	file.write("I",1);
@@ -300,8 +300,9 @@ void UserChat(int client_fd){
 	file.write("\n",1);
 	file.close();
 
+	//history from reciever to sender
 	string history_path_rev;
-	history_path_rev+=ReverseUsernameTLB[ConnectionList[client_fd]];
+	history_path_rev+=ConnectionList[ReverseUsernameTLB[client_fd]];
 	history_path_rev+="_";
 	history_path_rev+=ReverseUsernameTLB[client_fd];
 	fstream file_rev;
@@ -324,11 +325,7 @@ void UserChat(int client_fd){
 	res_communicate.magic = LMLINE_SUCCESS;//need modify
 	send(client_fd, &res_communicate,sizeof(res_communicate),0);
 
-
 	// Need to write the msg to HISTORY msg, and the history msg is 2-side too. Store: A->B, B->A.
-
-
-
 }
 
 void UserFile(int client_fd){
@@ -339,6 +336,7 @@ void UserFile(int client_fd){
 
 	uint8_t magic;
 
+	string dst(req_file.dstusername);
 	char filename[FILENAME_MAXLEN];
 	char file[FILE_MAXLEN];
 	int file_len;
@@ -346,33 +344,34 @@ void UserFile(int client_fd){
 	file_len=req_file.file_len;
 	recv(client_fd,&file,file_len,0);
 	
+	int dst_fd = UsernameTLB[ConnectionList[ReverseUsernameTLB[client_fd]]];
 	//deliver to another, ONLY SEND TO ONLINE USER, which menas the CONNECT IS 2-side
 	
 	int if_another_online = 0;
-	if(ConnectionList[ConnectionList[client_fd]]==client_fd){
+	if(client_fd==UsernameTLB[ConnectionList[dst]]){
 		if_another_online = 1;
 		//send
 		LMLine_protocol_header header;
 		memset(&header,0,sizeof(LMLine_protocol_header));
 		header.op = LMLINE_OP_FILE_SEND;
 		header.status = LMLINE_SERVER;
-		send(ConnectionList[client_fd],&header,sizeof(header),0);
+		send(dst_fd,&header,sizeof(header),0);
 
 		LMLine_protocol_file file_packet;
 		memset(&file_packet,0,sizeof(file_packet));
 		strcpy(file_packet.filename,filename);
 		file_packet.file_len=file_len;
-		send(ConnectionList[client_fd],&file_packet,sizeof(file_packet),0);
-		send(ConnectionList[client_fd],&file,file_len,0);
+		send(dst_fd,&file_packet,sizeof(file_packet),0);
+		send(dst_fd,&file,file_len,0);
 
 		//recv
 		LMLine_protocol_header res_header;
 		memset(&res_header,0,sizeof(LMLine_protocol_header));
-		recv(ConnectionList[client_fd],&res_header,sizeof(res_header),0);
+		recv(dst_fd,&res_header,sizeof(res_header),0);
 
 		LMLine_protocol_communicate res_file_packet;
 		memset(&res_file_packet,0,sizeof(res_file_packet));
-		recv(ConnectionList[client_fd],&res_file_packet,sizeof(res_file_packet),0);
+		recv(dst_fd,&res_file_packet,sizeof(res_file_packet),0);
 	
 	}
 
@@ -449,7 +448,6 @@ void UserFriend(uint8_t op, int client_fd){
 	send(client_fd, &header, sizeof(header), 0);
 	send(client_fd, &res_communicate, sizeof(res_communicate), 0);
 
-
 }
 
 void UserShowFriend(int client_fd){
@@ -487,8 +485,42 @@ void UserShowFriend(int client_fd){
 }
 
 void UserLeave(int client_fd){
-	//leaving?
+	string username = ReverseUsernameTLB[client_fd];
+	ConnectionList.erase(username);
 
+	LMLine_protocol_header header;
+	memset(&header,0,sizeof(header));
+	header.status = LMLINE_SERVER;
+	send(client_fd,&header,sizeof(header),0);
+}
+void UserQuery(int client_fd){
+	
+	//history I:for msg sended by th user U:otherwise
+	//history from sender to receiver
+	string history_path;
+	history_path+=ReverseUsernameTLB[client_fd];
+	history_path+="_";
+	history_path+=ConnectionList[ReverseUsernameTLB[client_fd]];
+	fstream file;
+	file.open(history_path,ios::in);
+	
+	if(file){
+		string line;
+		while(getline(file,line)){
+			LMLine_protocol_communicate line_packet;
+			memset(&line_packet,0,sizeof(line_packet));
+			strcpy(line_packet.message,line.c_str());
+			line_packet.magic = LMLINE_SUCCESS;
+			send(client_fd,&line_packet,sizeof(line_packet),0);
+		}
+	}
+
+	LMLine_protocol_communicate end_packet;
+	memset(&end_packet,0,sizeof(end_packet));
+	end_packet.magic = LMLINE_FAIL;
+	send(client_fd,&end_packet,sizeof(end_packet),0);
+
+	file.close();
 }
 
 void handle_client_request(int client_fd, fd_set* readset){
@@ -532,15 +564,14 @@ void handle_client_request(int client_fd, fd_set* readset){
 		case LMLINE_OP_LEAVE:
 			UserLeave(client_fd);
 			break;
+		case LMLINE_OP_QUERY:
+			UserQuery(client_fd);
+			break;
 		default:
 			break;
 
 	}
-
-
-
 }
-
 
 
 int main(int argc,char* argv[]){
