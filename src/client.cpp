@@ -291,7 +291,7 @@ void send_msg(int sockfd){
 */
 }
 
-void send_file(int sockfd,int num){
+void send_file(int num,LMLine_protocol_header* header,LMLine_protocol_file* file_packet,LMLine_file* files){
 	printf("(Enter the path of the %d-th file:)\n",num+1);
 	char path[MSG_MAXLEN];
 	scanf("%s",path);
@@ -306,48 +306,51 @@ void send_file(int sockfd,int num){
 		return;
 	}
 	int file_len = fread(file,sizeof(char),sizeof(file),fp);
+	strcpy(files->content,file);
 	fclose(fp);
 	
 	//send
-	LMLine_protocol_header header;
-	memset(&header, 0, sizeof(LMLine_protocol_header));
-	header.op = LMLINE_OP_FILE_SEND;
-	header.status = UserStatus;
-
-	LMLine_protocol_file file_packet;
-	memset(&file_packet, 0, sizeof(LMLine_protocol_file));
-
-	strcpy(file_packet.dstusername,ConnectionUsername);
-	strcpy(file_packet.filename,filename);
-	file_packet.file_len=file_len;
+	memset(header,0,sizeof(LMLine_protocol_header));
+	header->op = LMLINE_OP_FILE_SEND;
+	header->status = UserStatus;
+	memset(file_packet,0,sizeof(LMLine_protocol_file));
+	strcpy(file_packet->dstusername,ConnectionUsername);
+	strcpy(file_packet->filename,filename);
+	file_packet->file_len = file_len;
 	
-	send(sockfd,&header,sizeof(header),0);
-	send(sockfd,&file_packet,sizeof(file_packet),0);
-	send(sockfd,&file,file_len,0);
-
-	//recv
-	LMLine_protocol_header res_header;
-	memset(&header, 0 ,sizeof(LMLine_protocol_header));
-
-	LMLine_protocol_file res_file_packet;
-	memset(&res_file_packet,0,sizeof(LMLine_protocol_file));
-
-	recv(sockfd,&res_header,sizeof(res_header),0);
-	recv(sockfd,&res_file_packet,sizeof(res_file_packet),0);
-
-	if(res_header.op != LMLINE_OP_FILE_SEND || res_header.status != LMLINE_SERVER || res_file_packet.magic != LMLINE_SUCCESS)
-		printf("(fails to send file)\n");
-	else
-		printf("(success to send file)\n");
-
 }
 
 void pre_send_file(int sockfd){
 	int num;
 	scanf("%d",&num);
 	printf("=====start sending file=====\n");
+
+	LMLine_protocol_header header[MAX_FILE];
+	LMLine_protocol_file file_packet[MAX_FILE];
+	LMLine_file file[MAX_FILE];
 	for(int i=0;i<num;i++){
-		send_file(sockfd,i);
+		send_file(i,&header[i],&file_packet[i],&file[i]);
+	}
+	for(int i=0;i<num;i++){
+		
+		send(sockfd,&header[i],sizeof(header[i]),0);
+		send(sockfd,&file_packet[i],sizeof(file_packet[i]),0);
+		send(sockfd,&file[i],file_packet[i].file_len,0);
+		//recv
+		LMLine_protocol_header res_header;
+		memset(&header, 0 ,sizeof(LMLine_protocol_header));
+
+		LMLine_protocol_file res_file_packet;
+		memset(&res_file_packet,0,sizeof(LMLine_protocol_file));
+
+		recv(sockfd,&res_header,sizeof(res_header),0);
+		recv(sockfd,&res_file_packet,sizeof(res_file_packet),0);
+	
+		if(res_header.op != LMLINE_OP_FILE_SEND || res_header.status != LMLINE_SERVER || res_file_packet.magic != LMLINE_SUCCESS)
+			printf("(fails to send %d-th file)\n",i+1);
+		else	
+			printf("(success to send %d-th file)\n",i+1);
+
 	}
 	printf("=====end sending file=======\n");
 }

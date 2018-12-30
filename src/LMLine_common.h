@@ -9,10 +9,11 @@
 #define MAX_CLIENT 100
 #define MAX_CLIENT_ONLINE 10
 #define MAX_FD 1024
+#define MAX_FILE 10
 #define CMD_LEN 10
 #define MSG_MAXLEN 1024
 #define FILENAME_MAXLEN 20
-#define FILE_MAXLEN 1000000
+#define FILE_MAXLEN 10000
 #define PATH_MAXLEN 1024
 
 char ACCOUNT_FILE_PATH[30] = "./Account/account.txt";
@@ -76,7 +77,9 @@ typedef struct {
 }LMLine_protocol_file;
 
 
-
+typedef struct {
+	char content[FILE_MAXLEN];
+}LMLine_file;
 
 
 
