@@ -289,7 +289,7 @@ void UserChat(int client_fd){
 
 	//history I:for msg sended by th user U:otherwise
 	//history from sender to receiver
-	string history_path;
+	string history_path = "./USER/" + ReverseUsernameTLB[client_fd] + "/";
 	history_path+=ReverseUsernameTLB[client_fd];
 	history_path+="_";
 	history_path+=ConnectionList[ReverseUsernameTLB[client_fd]];
@@ -301,7 +301,7 @@ void UserChat(int client_fd){
 	file.close();
 
 	//history from reciever to sender
-	string history_path_rev;
+	string history_path_rev =  "./USER/" + ConnectionList[ReverseUsernameTLB[client_fd]] + "/";
 	history_path_rev+=ConnectionList[ReverseUsernameTLB[client_fd]];
 	history_path_rev+="_";
 	history_path_rev+=ReverseUsernameTLB[client_fd];
@@ -479,7 +479,9 @@ void UserShowFriend(int client_fd){
 
 	send(client_fd, &header, sizeof(header), 0);
 	send(client_fd, &fileheader, sizeof(fileheader), 0);
-	send(client_fd, list.c_str(), list.size(), 0);
+	char LIST[FILE_MAXLEN];
+	strcpy(LIST, list.c_str());
+	send(client_fd, LIST, strlen(LIST), 0);
 
 	printf("User:%s ask to show friendlist\n%s\n", username.c_str(), list.c_str());
 }
@@ -497,7 +499,7 @@ void UserQuery(int client_fd){
 	
 	//history I:for msg sended by th user U:otherwise
 	//history from sender to receiver
-	string history_path;
+	string history_path = "./USER/" + ReverseUsernameTLB[client_fd] + "/";
 	history_path+=ReverseUsernameTLB[client_fd];
 	history_path+="_";
 	history_path+=ConnectionList[ReverseUsernameTLB[client_fd]];
@@ -522,6 +524,73 @@ void UserQuery(int client_fd){
 
 	file.close();
 }
+void DeleteMsgfromLog(string filepath, string msg_to_del, int flag){	// flag 0 means A->B
+
+	vector<string>	msglist;
+	string entry;
+	fstream fin(filepath, ios::in);
+	while(getline(fin, entry)){
+		if (flag == 0 && entry[0] == 'U')	continue;
+		if (flag == 1 && entry[0] == 'I')	continue;
+		string tmpentry = entry.substr(1, entry.size());
+		if (tmpentry != msg_to_del)
+			msglist.push_back(entry);
+	}
+	fin.close();
+	fstream fout(filepath, ios::out);
+	for(int i=0; i<msglist.size(); i++)
+		fout << msglist[i] << endl;
+	fout.close();
+
+}
+
+
+void UserDelChat(int client_fd){
+
+	LMLine_protocol_communicate req_communicate;
+	memset(&req_communicate, 0, sizeof(req_communicate));
+	recv(client_fd, &req_communicate, sizeof(req_communicate), 0);
+
+	uint8_t magic;
+
+	char msg[MSG_MAXLEN];
+	strcpy(msg,req_communicate.message);
+	printf("Del msg:%s\n",msg);
+	string msg_to_del = msg;
+
+	//history I:for msg sended by th user U:otherwise
+	//history from sender to receiver
+	string history_path = "./USER/" + ReverseUsernameTLB[client_fd] + "/";
+	history_path+=ReverseUsernameTLB[client_fd];
+	history_path+="_";
+	history_path+=ConnectionList[ReverseUsernameTLB[client_fd]];
+	DeleteMsgfromLog(history_path, msg_to_del, 0);
+
+	//history from reciever to sender
+	string history_path_rev =  "./USER/" + ConnectionList[ReverseUsernameTLB[client_fd]] + "/";
+	history_path_rev+=ConnectionList[ReverseUsernameTLB[client_fd]];
+	history_path_rev+="_";
+	history_path_rev+=ReverseUsernameTLB[client_fd];
+	DeleteMsgfromLog(history_path_rev, msg_to_del, 1);
+
+
+	//Send Back to Original client, To ACK
+	LMLine_protocol_header header;
+	memset(&header, 0 ,sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_CHAT;
+	header.status = LMLINE_SERVER;
+	send(client_fd, &header, sizeof(header),0);
+	
+	LMLine_protocol_communicate res_communicate;
+	memset(&res_communicate, 0, sizeof(LMLine_protocol_communicate));
+	res_communicate.magic = LMLINE_SUCCESS;//need modify
+	send(client_fd, &res_communicate,sizeof(res_communicate),0);
+
+
+
+}
+
+
 
 void handle_client_request(int client_fd, fd_set* readset){
 
@@ -548,6 +617,9 @@ void handle_client_request(int client_fd, fd_set* readset){
 			break;
 		case LMLINE_OP_CHAT:
 			UserChat(client_fd);
+			break;
+		case LMLINE_OP_DELCHAT:
+			UserDelChat(client_fd);
 			break;
 		case LMLINE_OP_FILE_SEND:
 			UserFile(client_fd);

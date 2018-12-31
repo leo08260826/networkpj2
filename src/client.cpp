@@ -210,7 +210,7 @@ void ShowFriend(int sockfd){
 		return;
 	else{
 		int friendfilelen = friendfileheader.file_len;
-		char friendfile[FILE_MAXLEN];
+		char friendfile[FILE_MAXLEN] = "";
 		recv(sockfd, friendfile, friendfilelen, 0);
 		printf("\n%s\n", friendfile);
 		return;
@@ -256,9 +256,11 @@ void user_process(int sockfd){
 }
 
 void send_msg(int sockfd){
-	char msg[MSG_MAXLEN];
-	scanf("%s",msg);
 
+	char msg[MSG_MAXLEN];
+	// scanf("%s",msg);
+	cin.getline(msg, MSG_MAXLEN, '\n');
+	strcpy(msg, &msg[1]);
 	//send
 	LMLine_protocol_header header;
 	memset(&header, 0, sizeof(LMLine_protocol_header));
@@ -415,7 +417,7 @@ void handle_msg(int sockfd){
 void leave(int sockfd){
 	//leaving chatroom
 	printf("(Left from chatroom with %s)\n",ConnectionUsername);
-	strcat(ConnectionUsername,"");
+	strcpy(ConnectionUsername,"");
 
 	LMLine_protocol_header header;
 	memset(&header,0,sizeof(header));
@@ -459,12 +461,46 @@ void query(int sockfd){
 	printf("=====end of log=========\n");
 
 }
+void take_back_msg(int sockfd){
+	char msg[MSG_MAXLEN];
+	// scanf("%s",msg);
+	cin.getline(msg, MSG_MAXLEN, '\n');
+	strcpy(msg, &msg[1]);
+
+	LMLine_protocol_header header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+	header.op = LMLINE_OP_DELCHAT;
+	header.status = UserStatus;
+
+	LMLine_protocol_communicate communicate_packet;
+	memset(&communicate_packet, 0, sizeof(LMLine_protocol_communicate));
+	
+	strcpy(communicate_packet.message,msg);
+
+	send(sockfd,&header,sizeof(header),0);
+	send(sockfd,&communicate_packet,sizeof(communicate_packet),0);
+	
+	//recv
+	LMLine_protocol_header res_header;
+	memset(&header, 0, sizeof(LMLine_protocol_header));
+
+	LMLine_protocol_communicate res_communicate_packet;
+	memset(&res_communicate_packet, 0,sizeof(LMLine_protocol_communicate));
+
+	recv(sockfd, &res_header,sizeof(res_header), 0);
+	recv(sockfd, &res_communicate_packet,sizeof(res_communicate_packet),0);
+
+}
+
 
 void chat_process(int sockfd){
 	char cmd[CMD_LEN];
 	scanf("%s",cmd);
 	if (strcmp(cmd,"/h") == 0){
 		Chat_Interface();
+	}
+	else if (strcmp(cmd, "/TB") == 0){
+		take_back_msg(sockfd);
 	}
 	else if (strcmp(cmd,"/log") == 0){
 		query(sockfd);
