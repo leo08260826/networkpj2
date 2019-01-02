@@ -506,23 +506,42 @@ void UserQuery(int client_fd){
 	fstream file;
 	file.open(history_path,ios::in);
 	
+	string alllog = "";
 	if(file){
 		string line;
-		while(getline(file,line)){
-			printf("read one line\n");
-			LMLine_protocol_communicate line_packet;
-			memset(&line_packet,0,sizeof(line_packet));
-			strcpy(line_packet.message,line.c_str());
-			line_packet.magic = LMLINE_SUCCESS;
-			send(client_fd,&line_packet,sizeof(line_packet),0);
+		// while(getline(file,line)){
+		// 	printf("read one line\n");
+		// 	LMLine_protocol_communicate line_packet;
+		// 	memset(&line_packet,0,sizeof(line_packet));
+		// 	strcpy(line_packet.message,line.c_str());
+		// 	line_packet.magic = LMLINE_SUCCESS;
+		// 	send(client_fd,&line_packet,sizeof(line_packet),0);
+		// }
+		
+		while(getline(file, line)){
+			char tmp[30]="";
+			if (line[0] == 'I'){
+				sprintf(tmp, ":%s\n", line.substr(1, sizeof(line)).c_str());
+				string tmpline = tmp;
+				alllog += tmpline;
+			}
+			else if (line[0] == 'U'){
+				sprintf(tmp, "%s:%s\n", ConnectionList[ReverseUsernameTLB[client_fd]].c_str(), line.substr(1, sizeof(line)).c_str());
+				string tmpline = tmp;
+				alllog += tmpline;
+			}
 		}
+
+
 	}
 
 	printf("before end packet\n");
-	LMLine_protocol_communicate end_packet;
+	LMLine_protocol_file end_packet;
 	memset(&end_packet,0,sizeof(end_packet));
-	end_packet.magic = LMLINE_FAIL;
+	end_packet.magic = LMLINE_SUCCESS;
+	end_packet.file_len = alllog.size();
 	send(client_fd,&end_packet,sizeof(end_packet),0);
+	send(client_fd,alllog.c_str(),sizeof(alllog.c_str()), 0);
 	printf("end packet\n");
 
 	file.close();

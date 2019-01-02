@@ -446,25 +446,32 @@ void query(int sockfd){
 
 	printf("=====start logging======\n");
 
-	LMLine_protocol_communicate line_packet;
-	memset(&line_packet,0,sizeof(line_packet));
-	recv(sockfd,&line_packet,sizeof(line_packet),0);
-	while(line_packet.magic!=LMLINE_FAIL){
+	// LMLine_protocol_communicate line_packet;
+	// memset(&line_packet,0,sizeof(line_packet));
+	// recv(sockfd,&line_packet,sizeof(line_packet),0);
+	// while(line_packet.magic!=LMLINE_FAIL){
 		
-		char line_msg[MSG_MAXLEN];
-		strcpy(line_msg,line_packet.message);
-		if(line_msg[0]=='I'){
-			printf(":%s\n",&line_msg[1]);
-		}
-		else if(line_msg[0]=='U'){
-			printf("%s:%s\n",ConnectionUsername,&line_msg[1]);
-		}
-		else{
-			//pass
-		}
-		memset(&line_packet,0,sizeof(line_packet));
-		recv(sockfd,&line_packet,sizeof(line_packet),0);
-	}
+	// 	char line_msg[MSG_MAXLEN];
+	// 	strcpy(line_msg,line_packet.message);
+	// 	if(line_msg[0]=='I'){
+	// 		printf(":%s\n",&line_msg[1]);
+	// 	}
+	// 	else if(line_msg[0]=='U'){
+	// 		printf("%s:%s\n",ConnectionUsername,&line_msg[1]);
+	// 	}
+	// 	else{
+	// 		//pass
+	// 	}
+	// 	memset(&line_packet,0,sizeof(line_packet));
+	// 	recv(sockfd,&line_packet,sizeof(line_packet),0);
+	// }
+	LMLine_protocol_file	file;
+	memset(&file, 0, sizeof(file));
+	recv(sockfd, &file, sizeof(file), 0);
+	char LOG[FILE_MAXLEN];
+	recv(sockfd, LOG, sizeof(file.file_len), 0);
+	printf("%s\n", LOG);
+
 	printf("=====end of log=========\n");
 
 }
