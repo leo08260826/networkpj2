@@ -154,7 +154,7 @@ int connecttouser(int sockfd){
 void AddFriend(int sockfd){
 
 	char mode[5], username[USERNAME_MAXLEN]; 
-	scanf("%s %s",mode, username);
+	scanf("%s",mode);
 
 
 	uint8_t op;
@@ -164,7 +164,11 @@ void AddFriend(int sockfd){
 	else if (strcmp(mode, "-del") == 0){
 		op = LMLINE_OP_FRIEND_DEL;
 	}
-
+	else{
+		printf("(Invalid Command)\n");
+		return;
+	}
+	scanf("%s",username);
 	// Send Add(or Del) friend Req
 	LMLine_protocol_header header;
 	memset(&header, 0, sizeof(LMLine_protocol_header));
@@ -293,7 +297,7 @@ void send_msg(int sockfd){
 */
 }
 
-void send_file(int num,LMLine_protocol_header* header,LMLine_protocol_file* file_packet,LMLine_file* files){
+void send_file(int num,LMLine_protocol_header* header,LMLine_protocol_file* file_packet,LMLine_file* files, int file_able[]){
 	printf("(Enter the path of the %d-th file:)\n",num+1);
 	char path[MSG_MAXLEN];
 	scanf("%s",path);
@@ -304,9 +308,10 @@ void send_file(int num,LMLine_protocol_header* header,LMLine_protocol_file* file
 	FILE *fp=fopen(path,"rb");
 	if(fp==NULL)
 	{
-		printf("(wrong path)\n");
+		// printf("(wrong path)\n");
 		return;
 	}
+	file_able[num] = 1;
 	int file_len = fread(file,sizeof(char),sizeof(file),fp);
 	strcpy(files->content,file);
 	fclose(fp);
@@ -319,6 +324,7 @@ void send_file(int num,LMLine_protocol_header* header,LMLine_protocol_file* file
 	strcpy(file_packet->dstusername,ConnectionUsername);
 	strcpy(file_packet->filename,filename);
 	file_packet->file_len = file_len;
+
 	
 }
 
@@ -330,11 +336,12 @@ void pre_send_file(int sockfd){
 	LMLine_protocol_header header[MAX_FILE];
 	LMLine_protocol_file file_packet[MAX_FILE];
 	LMLine_file file[MAX_FILE];
+	int file_able[MAX_FILE] = {0};
 	for(int i=0;i<num;i++){
-		send_file(i,&header[i],&file_packet[i],&file[i]);
+		send_file(i,&header[i],&file_packet[i],&file[i], file_able);
 	}
 	for(int i=0;i<num;i++){
-		
+		if (!file_able[i]) continue;
 		send(sockfd,&header[i],sizeof(header[i]),0);
 		send(sockfd,&file_packet[i],sizeof(file_packet[i]),0);
 		send(sockfd,&file[i],file_packet[i].file_len,0);

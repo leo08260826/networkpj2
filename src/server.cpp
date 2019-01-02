@@ -530,8 +530,8 @@ void DeleteMsgfromLog(string filepath, string msg_to_del, int flag){	// flag 0 m
 	string entry;
 	fstream fin(filepath, ios::in);
 	while(getline(fin, entry)){
-		if (flag == 0 && entry[0] == 'U')	continue;
-		if (flag == 1 && entry[0] == 'I')	continue;
+		if (flag == 0 && entry[0] == 'U')	msglist.push_back(entry);
+		if (flag == 1 && entry[0] == 'I')	msglist.push_back(entry);
 		string tmpentry = entry.substr(1, entry.size());
 		if (tmpentry != msg_to_del)
 			msglist.push_back(entry);
