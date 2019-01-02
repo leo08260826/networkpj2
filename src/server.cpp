@@ -509,6 +509,7 @@ void UserQuery(int client_fd){
 	if(file){
 		string line;
 		while(getline(file,line)){
+			printf("read one line\n");
 			LMLine_protocol_communicate line_packet;
 			memset(&line_packet,0,sizeof(line_packet));
 			strcpy(line_packet.message,line.c_str());
@@ -517,10 +518,12 @@ void UserQuery(int client_fd){
 		}
 	}
 
+	printf("before end packet\n");
 	LMLine_protocol_communicate end_packet;
 	memset(&end_packet,0,sizeof(end_packet));
 	end_packet.magic = LMLINE_FAIL;
 	send(client_fd,&end_packet,sizeof(end_packet),0);
+	printf("end packet\n");
 
 	file.close();
 }
