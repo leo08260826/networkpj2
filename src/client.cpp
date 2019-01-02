@@ -468,9 +468,10 @@ void query(int sockfd){
 	LMLine_protocol_file	file;
 	memset(&file, 0, sizeof(file));
 	recv(sockfd, &file, sizeof(file), 0);
-	char LOG[FILE_MAXLEN];
-	recv(sockfd, LOG, sizeof(file.file_len), 0);
-	printf("%s\n", LOG);
+	char LOG[MSG_MAXLEN]="";
+	recv(sockfd, LOG, file.file_len, 0);
+	// printf("need to recv %d size log and recv %d\n", file.file_len, strlen(LOG));
+	printf("%s", LOG);
 
 	printf("=====end of log=========\n");
 

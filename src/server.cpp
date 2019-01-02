@@ -519,7 +519,7 @@ void UserQuery(int client_fd){
 		// }
 		
 		while(getline(file, line)){
-			char tmp[30]="";
+			char tmp[100]="";
 			if (line[0] == 'I'){
 				sprintf(tmp, ":%s\n", line.substr(1, sizeof(line)).c_str());
 				string tmpline = tmp;
@@ -530,21 +530,28 @@ void UserQuery(int client_fd){
 				string tmpline = tmp;
 				alllog += tmpline;
 			}
+			//printf("%s", tmp);
 		}
-
-
+		file.close();
 	}
 
+
+	char ALLLog[MSG_MAXLEN]="";
+	strcpy(ALLLog, alllog.c_str());
+	printf("Test size:%lu:%s\n",strlen(ALLLog),ALLLog);
 	printf("before end packet\n");
 	LMLine_protocol_file end_packet;
 	memset(&end_packet,0,sizeof(end_packet));
 	end_packet.magic = LMLINE_SUCCESS;
-	end_packet.file_len = alllog.size();
+	end_packet.file_len = strlen(ALLLog);
 	send(client_fd,&end_packet,sizeof(end_packet),0);
-	send(client_fd,alllog.c_str(),sizeof(alllog.c_str()), 0);
+
+
+
+	send(client_fd,ALLLog,strlen(ALLLog), 0);
 	printf("end packet\n");
 
-	file.close();
+	
 }
 void DeleteMsgfromLog(string filepath, string msg_to_del, int flag){	// flag 0 means A->B
 
